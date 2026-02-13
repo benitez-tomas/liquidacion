@@ -56,7 +56,6 @@ th { background: #eee; }
 <button onclick="process()">Procesar</button>
 
 <div id="result"></div>
-
 <script>
 
 function parseMoney(str) {
@@ -74,90 +73,76 @@ function formatMoney(num) {
 }
 
 function process() {
+
   const input = document.getElementById("input").value.trim();
   if (!input) return;
 
   const rows = input.split("\n").map(r => r.split("\t"));
-  const headers = rows[0].map(h => h.trim());
 
-  const upperHeaders = headers.map(h => h.toUpperCase());
+  // 🔹 CHANGE THESE INDEXES IF YOUR SHEET CHANGES
+  const tariffColumns = [2,4,6,8]; // example: tariff columns
+  const bonosIndex = 10;
+  const excepcIndex = 11;
+  const totalIndex = 12;
 
-  const isTariff = upperHeaders.map(h => h.includes("TARIFA"));
+  // product columns must align with tariffColumns
+  const productColumns = [1,3,5,7];
 
-  // Detect special columns
-  const bonosIndex = upperHeaders.indexOf("BONOS");
-  const excepcIndex = upperHeaders.indexOf("EXCEPC.");
-  const totalIndex = upperHeaders.indexOf("TOTAL DIA");
-
-  // Keep only non-tariff columns
-  const keptIndexes = headers
+  // columns we keep (everything except tariff columns)
+  const keptColumns = rows[0]
     .map((_, i) => i)
-    .filter(i => !isTariff[i]);
+    .filter(i => !tariffColumns.includes(i));
 
-  // Map quantity → tariff column
-  const tariffMap = {};
-  headers.forEach((h, i) => {
-    if (isTariff[i]) {
-      const baseName = h.replace(/TARIFA\s*/i, "").trim().toUpperCase();
-      const baseIndex = upperHeaders.findIndex(
-        x => x === baseName
-      );
-      if (baseIndex !== -1) {
-        tariffMap[baseIndex] = i;
+  // get tariff value per tariff column (first non-zero found)
+  const tariffs = {};
+
+  tariffColumns.forEach(col => {
+    for (let r = 1; r < rows.length; r++) {
+      const val = parseMoney(rows[r][col]);
+      if (val !== 0) {
+        tariffs[col] = val;
+        break;
       }
     }
   });
 
   let html = "<table><tr>";
 
-  const newHeaders = keptIndexes.map(i => headers[i]);
-  newHeaders.push("TOTAL RECALCULADO", "DIFERENCIA");
+  keptColumns.forEach(i => {
+    html += "<th>"+rows[0][i]+"</th>";
+  });
 
-  newHeaders.forEach(h => html += "<th>"+h+"</th>");
-  html += "</tr>";
-
-  let tariffsRow = Array(newHeaders.length).fill("");
+  html += "<th>TOTAL RECALCULADO</th><th>DIFERENCIA</th></tr>";
 
   for (let r = 1; r < rows.length; r++) {
+
     if (rows[r][0].toUpperCase().includes("SUMA")) continue;
 
-    const row = rows[r];
     let total = 0;
 
     html += "<tr>";
 
-    keptIndexes.forEach((colIndex, newColIndex) => {
-
-      html += "<td>"+(row[colIndex] || "")+"</td>";
-
-      if (tariffMap[colIndex] !== undefined) {
-        const qty = parseMoney(row[colIndex]);
-        const tariff = parseMoney(row[tariffMap[colIndex]]);
-        total += qty * tariff;
-
-        if (!tariffsRow[newColIndex]) {
-          tariffsRow[newColIndex] = formatMoney(tariff);
-        }
-      }
+    keptColumns.forEach(i => {
+      html += "<td>"+(rows[r][i] || "")+"</td>";
     });
 
-    // ✅ Add BONOS and EXCEPC explicitly
-    if (bonosIndex !== -1) {
-      total += parseMoney(row[bonosIndex]);
-    }
+    // multiply qty × tariff
+    productColumns.forEach((prodCol, index) => {
+      const tariffCol = tariffColumns[index];
+      const qty = parseMoney(rows[r][prodCol]);
+      const tariff = tariffs[tariffCol] || 0;
+      total += qty * tariff;
+    });
 
-    if (excepcIndex !== -1) {
-      total += parseMoney(row[excepcIndex]);
-    }
+    // add bonos & excepc
+    total += parseMoney(rows[r][bonosIndex]);
+    total += parseMoney(rows[r][excepcIndex]);
 
-    const originalTotal =
-      totalIndex !== -1
-        ? parseMoney(row[totalIndex])
-        : 0;
-
+    const originalTotal = parseMoney(rows[r][totalIndex]);
     const diff = total - originalTotal;
 
-    html += `<td>${formatMoney(total)}</td>`;
+    html += "<td>"+formatMoney(total)+"</td>";
+
     html += `<td class="${diff !== 0 ? 'mismatch':'correct'}">${
       diff !== 0 ? formatMoney(diff) : "-"
     }</td>`;
@@ -165,20 +150,13 @@ function process() {
     html += "</tr>";
   }
 
-  // Add tariffs row
-  html += "<tr class='tariff-row'>";
-  html += "<td>TARIFAS</td>";
-  for (let i = 1; i < tariffsRow.length; i++) {
-    html += "<td>"+(tariffsRow[i] || "")+"</td>";
-  }
-  html += "</tr>";
-
   html += "</table>";
 
   document.getElementById("result").innerHTML = html;
 }
 
 </script>
+
 
 </body>
 </html>
