@@ -44,6 +44,9 @@ small {
 
 <h3>Salida (lista para pegar en Excel)</h3>
 <textarea id="output"></textarea>
+
+<button onclick="copiarSalida()">Copiar salida</button>
+<span id="mensaje"></span>
 </div>
 
 <script>
@@ -98,19 +101,21 @@ function procesar() {
             let valor = columnas[i] ?? "";
 
             // FECHA
-            if (encabezados[i] === "FECHA" && filaIndex !== 0) {
+            if (i === 1 && filaIndex !== 0) {
                 valor = formatearFecha(valor);
             }
 
             // EFECTIVIDAD
-            if (encabezados[i] === "EFECTIVIDAD" && filaIndex !== 0) {
-                valor = (Number(valor) / 100).toFixed(2);
+            if (i === 3 && filaIndex !== 0) {
+                valor = parseInt(valor) / 100.0;
             }
 
             // Números monetarios o cantidades
-            if (filaIndex !== 0 && encabezados[i] !== "FECHA") {
-                if (valor.includes("$") || valor.includes(".") || valor.includes("-")) {
-                    valor = limpiarNumero(valor);
+            if (filaIndex !== 0 && i !== 1) {
+                if (typeof valor === "string") {
+                    if (valor.includes("$") || valor.includes(".") || valor.includes("-")) {
+                        valor = limpiarNumero(valor);
+                    }
                 }
             }
 
@@ -122,6 +127,23 @@ function procesar() {
 
     document.getElementById("output").value = resultado.join("\n");
 }
+
+function copiarSalida() {
+    const texto = document.getElementById("output").value;
+
+    if (!texto) return;
+
+    navigator.clipboard.writeText(texto).then(() => {
+        const mensaje = document.getElementById("mensaje");
+        mensaje.textContent = "✓ Copiado al portapapeles";
+        mensaje.style.color = "green";
+
+        setTimeout(() => {
+            mensaje.textContent = "";
+        }, 2000);
+    });
+}
+
 </script>
 </body>
 </html>
