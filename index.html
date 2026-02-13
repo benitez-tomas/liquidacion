@@ -83,8 +83,8 @@ function procesar() {
     let indicesValidos = [];
 
     encabezados.forEach((col, i) => {
-        if (col === "PROVEEDOR") return;
-        if (col.includes("TARIFA")) return;
+        if (col.includes("PROVE")) return;
+        if (col.includes("TARIF")) return;
         indicesValidos.push(i);
     });
 
